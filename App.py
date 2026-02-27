@@ -3,12 +3,16 @@ import pandas as pd
 import tensorflow as tf
 import numpy as np
 from tensorflow.keras.layers import TextVectorization
-from tensorflow.keras.models import load_model
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import LSTM, Bidirectional, Dense, Embedding
 
-# Load dataset (used only for column labels)
+# Load dataset
 df = pd.read_csv("train.csv")
 
-# Text vectorization setup
+X = df["comment_text"]
+y = df[df.columns[2:]].values
+
+# Text Vectorization
 MAX_FEATURES = 200000
 
 vectorizer = TextVectorization(
@@ -17,12 +21,30 @@ vectorizer = TextVectorization(
     output_mode="int"
 )
 
-X = df["comment_text"]
 vectorizer.adapt(X.values)
+vectorized_text = vectorizer(X.values)
 
-# Load trained model
-model = load_model("toxicity.h5")
+# Dataset pipeline
+dataset = tf.data.Dataset.from_tensor_slices((vectorized_text, y))
+dataset = dataset.shuffle(160000).batch(16).prefetch(8)
 
+train = dataset.take(int(len(dataset) * 0.8))
+
+# Build Model
+model = Sequential()
+model.add(Embedding(MAX_FEATURES + 1, 32))
+model.add(Bidirectional(LSTM(32, activation="tanh")))
+model.add(Dense(128, activation="relu"))
+model.add(Dense(256, activation="relu"))
+model.add(Dense(128, activation="relu"))
+model.add(Dense(6, activation="sigmoid"))
+
+model.compile(loss="BinaryCrossentropy", optimizer="Adam")
+
+# Train model (1 epoch for demo)
+model.fit(train, epochs=1)
+
+# Prediction function
 def score_comment(comment):
     vectorized_comment = vectorizer([comment])
     results = model.predict(vectorized_comment)
@@ -33,12 +55,12 @@ def score_comment(comment):
 
     return response
 
+# Gradio Interface
 interface = gr.Interface(
     fn=score_comment,
-    inputs=gr.Textbox(lines=2, placeholder="Enter comment to analyze"),
+    inputs=gr.Textbox(lines=2, placeholder="Enter comment"),
     outputs="text",
-    title="Hate Speech Detection",
-    description="Deep Learning based Toxic Comment Classifier using TensorFlow"
+    title="Hate Speech Detection"
 )
 
 if __name__ == "__main__":
