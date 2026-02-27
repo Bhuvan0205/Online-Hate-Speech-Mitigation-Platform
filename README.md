@@ -25,6 +25,12 @@ This project detects hate speech in social media text using NLP and Deep Learnin
 ## Dataset
 Kaggle Toxic Comment Classification Dataset
 
-## How to Run
-pip install -r requirements.txt  
-python app.py
+## How to Run Locally
+
+1. Install dependencies  
+   pip install -r requirements.txt  
+
+2. Run the application  
+   python app.py  
+
+3. Open the Gradio interface in browser
